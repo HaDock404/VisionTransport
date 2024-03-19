@@ -3,3 +3,4 @@
 # suppression Xcode
 .DS_Store
 train/Data/files/*
+train/test_VGG16/data/*

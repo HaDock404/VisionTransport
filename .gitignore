@@ -1,6 +1,6 @@
 # Remove .DS_Store files with 
 # find . -name .DS_Store -print0 | xargs -0 git rm -f --ignore-unmatch
-# suppression Xcode
 .DS_Store
 train/Data/files/*
 train/test_VGG16/data/*
+train/models/*

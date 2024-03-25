@@ -4,3 +4,5 @@
 train/Data/files/*
 train/test_VGG16/data/*
 train/models/*
+train/Example/test_U-net/test_data/*
+train/Exemple/test_VGG16/data/*

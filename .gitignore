@@ -10,3 +10,4 @@ train/Example/U-net/images/*
 train/Example/U-net/images_val/*
 train/Example/U-net/masks/*
 train/Example/U-net/masks_val/*
+train/Example/U-net/models/*

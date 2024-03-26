@@ -11,3 +11,8 @@ train/Example/U-net/images_val/*
 train/Example/U-net/masks/*
 train/Example/U-net/masks_val/*
 train/Example/U-net/models/*
+train/Example/Binary_segmentation/images/*
+train/Example/Binary_segmentation/masks/*
+train/Example/Binary_segmentation/images_val/*
+train/Example/Binary_segmentation/masks_val/*
+train/Example/Binary_segmentation/models/*

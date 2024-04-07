@@ -6,7 +6,7 @@ import pandas as pd
 
 def path_finder(path):
     """
-    Retrieves the path of files in the differents data folders
+    Retrieves the path of files in differents data folders
     """
     train_dir = path
     paths = []
@@ -17,6 +17,20 @@ def path_finder(path):
             for j in os.listdir(folder_path):
                 file_path = os.path.join(folder_path, j)
                 paths.append(file_path)
+    return paths
+
+
+def path_finder_one_folder(path):
+    """
+    Retrieves the path of files in one data folders
+    """
+    dir = path
+    paths = []
+
+    for i in os.listdir(dir):
+        folder_path = os.path.join(dir, i)
+        if i != '.DS_Store':
+            paths.append(folder_path)
     return paths
 
 
@@ -203,11 +217,14 @@ def mask_transformation_saving(df, path=""):
             else:
                 pass
         img.save(f'./Data/masks{path}/{file_path}.png')
-    pass
+
+
+def saving_df(df, path):
+    dataset = path
+    df.to_csv(dataset, index=False)
 
 
 def main():
-    """Fonction principale."""
     image_paths_train = path_finder(
         "./Data/files/Cityscapes_leftImg8bit_trainvaltest/leftImg8bit/train")
     label_paths_train = path_finder(
@@ -222,6 +239,19 @@ def main():
 
     mask_transformation_saving(df_train)
     mask_transformation_saving(df_val, "_val")
+
+    image_paths_train = path_finder(
+        "./Data/files/Cityscapes_leftImg8bit_trainvaltest/leftImg8bit/train")
+    label_paths_train = path_finder_one_folder('./Data/masks')
+    image_paths_val = path_finder(
+        "./Data/files/Cityscapes_leftImg8bit_trainvaltest/leftImg8bit/val")
+    label_paths_val = path_finder_one_folder('./Data/masks_val')
+
+    df_train = create_dataframe(image_paths_train, label_paths_train)
+    df_val = create_dataframe(image_paths_val, label_paths_val)
+
+    saving_df(df_train, "./Data/df_train.csv")
+    saving_df(df_val, "./Data/df_val.csv")
 
 
 if __name__ == "__main__":

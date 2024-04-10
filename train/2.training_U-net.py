@@ -6,11 +6,14 @@ from tensorflow.keras.callbacks import EarlyStopping  # type: ignore
 from tensorflow.keras.callbacks import ModelCheckpoint  # type: ignore
 import albumentations as A
 from keras.losses import SparseCategoricalCrossentropy
+import tensorflow as tf
 from tensorflow.keras.layers import Input, Conv2D, MaxPooling2D  # type: ignore
 from tensorflow.keras.layers import Dropout, Conv2DTranspose  # type: ignore
 from tensorflow.keras.layers import concatenate  # type: ignore
 from tensorflow.keras.models import Model  # type: ignore
 from tensorflow.keras.optimizers import Adam  # type: ignore
+from tensorflow.keras import models as K  # type: ignore
+import matplotlib.pyplot as plt
 
 
 def loading_data(path):
@@ -152,26 +155,66 @@ def unet_model(input_shape, num_classes):
     return model
 
 
+def dice_coef(y_true, y_pred, smooth=1e-6):
+    y_pred = tf.argmax(y_pred, axis=-1)
+
+    y_true = K.cast(y_true, dtype=K.floatx())
+    y_pred = K.cast(y_pred, dtype=K.floatx())
+
+    y_true_f = K.flatten(y_true)
+    y_pred_f = K.flatten(y_pred)
+
+    intersection = K.sum(y_true_f * y_pred_f)
+    return (2. * intersection + smooth) / (K.sum(y_true_f)
+                                           + K.sum(y_pred_f) + smooth)
+
+
+def iou(y_true, y_pred, smooth=1e-6):
+    y_true = K.cast(y_true, dtype=K.floatx())
+    y_pred = K.cast(y_pred, dtype=K.floatx())
+
+    intersection = K.sum(K.abs(y_true * y_pred), axis=[1, 2, 3])
+    union = K.sum(y_true, [1, 2, 3]) + K.sum(y_pred, [1, 2, 3]) - intersection
+    return K.mean((intersection + smooth) / (union + smooth), axis=0)
+
+
+def save_metrics(metric_name, metric_train, metric_val):
+    _epochs = list(range(1, len(metric_train) + 1))
+    plt.plot(_epochs, metric_train, 'g', label=f'{metric_name} Train')
+    plt.plot(_epochs, metric_val, 'b', label=f'{metric_name} Val')
+    plt.title(f'{metric_name} Train & Val')
+    plt.xlabel('Epochs')
+    plt.ylabel(f'{metric_name}')
+    plt.legend()
+    plt.savefig(f'./Data/metrics/{metric_name}.png')
+    plt.close()
+
+
 def model_training(X_train, y_train, X_val, y_val, input_shape, num_classes):
     """
     Model training with earlystopping each improvement of loss function
     loss function sparse is better with categories
     """
+    tf.keras.utils.get_custom_objects()['dice_coef'] = dice_coef
+    tf.keras.utils.get_custom_objects()['iou'] = iou
+
     model = unet_model(input_shape, num_classes)
     model.compile(optimizer=Adam(), loss=SparseCategoricalCrossentropy(),
-                  metrics=['accuracy'])
+                  metrics=['accuracy', dice_coef, iou])
 
     early_stopping = EarlyStopping(monitor='val_loss', patience=3, verbose=1,
                                    restore_best_weights=True)
-    model_checkpoint = ModelCheckpoint('model_X.keras', monitor='val_loss',
-                                       save_best_only=True, verbose=1)
+    model_checkpoint = ModelCheckpoint('./models/model_X.keras',
+                                       monitor='val_loss', save_best_only=True,
+                                       verbose=1)
 
-    model.fit(X_train, y_train,
-              validation_data=(X_val, y_val),
-              batch_size=32,
-              epochs=100,
-              callbacks=[early_stopping, model_checkpoint],
-              verbose=1)
+    history = model.fit(X_train, y_train,
+                        validation_data=(X_val, y_val),
+                        batch_size=32,
+                        epochs=100,
+                        callbacks=[early_stopping, model_checkpoint],
+                        verbose=1)
+    return history
 
 
 def main():
@@ -183,7 +226,7 @@ def main():
     X_val, y_val = prepare_data(df_val, (256, 256, 3), transform)
     num_class = 8
 
-    model_training(
+    history = model_training(
         X_train,
         y_train,
         X_val,
@@ -191,6 +234,15 @@ def main():
         (256, 256, 3),
         num_class
         )
+
+    save_metrics('Loss', history.history['loss'],
+                 history.history['val_loss'])
+    save_metrics('Accuracy', history.history['accuracy'],
+                 history.history['val_accuracy'])
+    save_metrics('Dice Coef', history.history['dice_coef'],
+                 history.history['val_dice_coef'])
+    save_metrics('Iou', history.history['iou'],
+                 history.history['val_iou'])
 
 
 if __name__ == "__main__":

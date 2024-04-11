@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="../static/style.css" rel="stylesheet" type="text/css" />
+    <title>VisionTransport - IA</title>
+</head>
+<body>
+    <header>
+        <!--<img src="../static/logo.png" class="logo" aria-label="Logo du site Air Paradis" alt="Logo du site Air Paradis"/>-->
+        <h1>Tweet Prediction - IA</h1>
+    </header>
+    <form id="inputForm">
+        <h2> Sélectionner une image à analyser :</h2>
+        <input type="file" name="image" accept="image/*" id="inputForm">
+        <input type="submit" value="Uploader">
+    </form>
+    
+    <button onclick="getResult()" >Click me</button>
+    <div id="result"></div>
+    
+    <script src="../static/app.js"></script>
+</body>
+</html>

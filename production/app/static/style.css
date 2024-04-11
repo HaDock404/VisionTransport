@@ -1,0 +1,20 @@
+h1 {
+    color: #1c5290;
+    margin-right: 100px;
+    margin-left: 20px;
+}
+
+header {
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-start;
+	align-items: center;
+}
+
+form {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+	align-items: center;
+}
+

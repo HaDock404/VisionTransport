@@ -19,4 +19,4 @@ train/Example/Binary_segmentation/models/*
 train/Data/masks/*
 train/Data/masks_val/*
 train/Data/*.csv
-test1.yml
+Vision00.yml

@@ -1,3 +1,4 @@
+import os
 import pandas as pd
 import numpy as np
 from PIL import Image
@@ -12,8 +13,10 @@ from tensorflow.keras.layers import Dropout, Conv2DTranspose  # type: ignore
 from tensorflow.keras.layers import concatenate  # type: ignore
 from tensorflow.keras.models import Model  # type: ignore
 from tensorflow.keras.optimizers import Adam  # type: ignore
-from tensorflow.keras import models as K  # type: ignore
+from tensorflow.keras import backend as K  # type: ignore
 import matplotlib.pyplot as plt
+
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'
 
 
 def loading_data(path):
@@ -156,26 +159,113 @@ def unet_model(input_shape, num_classes):
 
 
 def dice_coef(y_true, y_pred, smooth=1e-6):
-    y_pred = tf.argmax(y_pred, axis=-1)
+    y_true = K.cast(y_true, 'float32')
+    y_pred = K.cast(y_pred, 'float32')
 
-    y_true = K.cast(y_true, dtype=K.floatx())
-    y_pred = K.cast(y_pred, dtype=K.floatx())
+    inputs = K.flatten(y_pred)
+    targets = K.flatten(y_true)
 
-    y_true_f = K.flatten(y_true)
-    y_pred_f = K.flatten(y_pred)
+    targets = K.expand_dims(targets, axis=-1)
+    inputs = K.expand_dims(inputs, axis=-1)
 
-    intersection = K.sum(y_true_f * y_pred_f)
-    return (2. * intersection + smooth) / (K.sum(y_true_f)
-                                           + K.sum(y_pred_f) + smooth)
+    intersection = K.sum(targets * inputs)
+    return (2*intersection + smooth) / (K.sum(targets) + K.sum(inputs) +
+                                        smooth)
+
+
+def dice_coeff_multiclass(y_true, y_pred):
+    y_true = y_true.numpy()
+    y_pred = y_pred.numpy()
+
+    tensor_mean = []
+
+    for i in range(len(y_true)):
+        mask1 = y_pred[i].copy()
+        segmentation_map = np.argmax(mask1, axis=-1)
+        tableau_transforme = np.expand_dims(segmentation_map, axis=-1)
+        first_mask_array = np.uint8(tableau_transforme)
+
+        num_class_pred = len(np.unique(first_mask_array))
+        num_class_true = len(np.unique(y_true[i]))
+
+        if num_class_pred != num_class_true:
+            num_class = np.unique(y_true[i])
+        else:
+            num_class = np.unique(y_true[i])
+
+        el_unique = []
+        for el in num_class:
+            el_unique.append(el)
+
+        dice_mean = []
+
+        for value in el_unique:
+            binary_pred = np.copy(first_mask_array)
+            binary_pred[first_mask_array == value] = 0
+            binary_pred[first_mask_array != value] = 1
+
+            binary_true = np.copy(y_true[i])
+            binary_true[y_true[i] == value] = 0
+            binary_true[y_true[i] != value] = 1
+
+            dice_mean.append(dice_coef(binary_true, binary_pred).numpy())
+            tensor = np.mean(dice_mean)
+
+        tensor_mean.append(tensor)
+
+    return 1 - np.mean(tensor_mean)
 
 
 def iou(y_true, y_pred, smooth=1e-6):
-    y_true = K.cast(y_true, dtype=K.floatx())
-    y_pred = K.cast(y_pred, dtype=K.floatx())
+    y_true = K.cast(y_true, 'float32')
+    y_pred = K.cast(y_pred, 'float32')
 
-    intersection = K.sum(K.abs(y_true * y_pred), axis=[1, 2, 3])
-    union = K.sum(y_true, [1, 2, 3]) + K.sum(y_pred, [1, 2, 3]) - intersection
-    return K.mean((intersection + smooth) / (union + smooth), axis=0)
+    intersection = K.sum(K.abs(y_true * y_pred))
+    union = K.sum(y_true) + K.sum(y_pred) - intersection
+    return K.mean((intersection + smooth) / (union + smooth))
+
+
+def iou_multiclass(y_true, y_pred):
+    y_true = y_true.numpy()
+    y_pred = y_pred.numpy()
+
+    tensor_mean = []
+
+    for i in range(len(y_true)):
+        mask1 = y_pred[i].copy()
+        segmentation_map = np.argmax(mask1, axis=-1)
+        tableau_transforme = np.expand_dims(segmentation_map, axis=-1)
+        first_mask_array = np.uint8(tableau_transforme)
+
+        num_class_pred = len(np.unique(first_mask_array))
+        num_class_true = len(np.unique(y_true[i]))
+
+        if num_class_pred != num_class_true:
+            num_class = np.unique(y_true[i])
+        else:
+            num_class = np.unique(y_true[i])
+
+        el_unique = []
+        for el in num_class:
+            el_unique.append(el)
+
+        dice_mean = []
+
+        for value in el_unique:
+            binary_pred = np.copy(first_mask_array)
+            binary_pred[first_mask_array == value] = 0
+            binary_pred[first_mask_array != value] = 1
+
+            binary_true = np.copy(y_true[i])
+            binary_true[y_true[i] == value] = 0
+            binary_true[y_true[i] != value] = 1
+
+            dice_mean.append(iou(binary_true, binary_pred).numpy())
+            tensor = np.mean(dice_mean)
+
+        tensor_mean.append(tensor)
+
+    return 1 - np.mean(tensor_mean)
 
 
 def save_metrics(metric_name, metric_train, metric_val):
@@ -195,12 +285,14 @@ def model_training(X_train, y_train, X_val, y_val, input_shape, num_classes):
     Model training with earlystopping each improvement of loss function
     loss function sparse is better with categories
     """
-    tf.keras.utils.get_custom_objects()['dice_coef'] = dice_coef
-    tf.keras.utils.get_custom_objects()['iou'] = iou
+    tf.keras.utils.get_custom_objects()['dice_coeff_multiclass'] =\
+        dice_coeff_multiclass
+    tf.keras.utils.get_custom_objects()['iou_multiclass'] =\
+        iou_multiclass
 
     model = unet_model(input_shape, num_classes)
     model.compile(optimizer=Adam(), loss=SparseCategoricalCrossentropy(),
-                  metrics=['accuracy', dice_coef, iou])
+                  metrics=['accuracy', dice_coeff_multiclass, iou_multiclass])
 
     early_stopping = EarlyStopping(monitor='val_loss', patience=3, verbose=1,
                                    restore_best_weights=True)
@@ -235,14 +327,18 @@ def main():
         num_class
         )
 
-    save_metrics('Loss', history.history['loss'],
+    save_metrics('Loss',
+                 history.history['loss'],
                  history.history['val_loss'])
-    save_metrics('Accuracy', history.history['accuracy'],
+    save_metrics('Accuracy',
+                 history.history['accuracy'],
                  history.history['val_accuracy'])
-    save_metrics('Dice Coef', history.history['dice_coef'],
-                 history.history['val_dice_coef'])
-    save_metrics('Iou', history.history['iou'],
-                 history.history['val_iou'])
+    save_metrics('Dice Coef Multiclass',
+                 history.history['dice_coeff_multiclass'],
+                 history.history['val_dice_coeff_multiclass'])
+    save_metrics('Iou multiclass',
+                 history.history['iou_multiclass'],
+                 history.history['val_iou_multiclass'])
 
 
 if __name__ == "__main__":

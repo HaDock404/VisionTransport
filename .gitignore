@@ -18,6 +18,8 @@ train/Example/Binary_segmentation/masks_val/*
 train/Example/Binary_segmentation/models/*
 train/Data/masks/*
 train/Data/masks_val/*
+train/Data/images/*
+train/Data/images_val/*
 train/Data/*.csv
 Vision00.yml
 train/notebooks/test_mask/*

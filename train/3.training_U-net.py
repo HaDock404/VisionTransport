@@ -5,7 +5,6 @@ from PIL import Image
 from tensorflow.keras.preprocessing.image import img_to_array  # type: ignore
 from tensorflow.keras.callbacks import EarlyStopping  # type: ignore
 from tensorflow.keras.callbacks import ModelCheckpoint  # type: ignore
-import albumentations as A
 from keras.losses import SparseCategoricalCrossentropy
 import tensorflow as tf
 from tensorflow.keras.layers import Input, Conv2D, MaxPooling2D  # type: ignore
@@ -26,7 +25,7 @@ def loading_data(path):
     return df
 
 
-def prepare_data(df, input_shape, transform):
+def prepare_data(df, input_shape):
     """
     Preparation of data,
     resizing, conversion RGB,
@@ -69,32 +68,6 @@ def prepare_data(df, input_shape, transform):
                     mask[x, y] = 7
         mask = mask[:, :, 0:1]
         masks_tab.append(mask)
-
-        transformed = transform(image=image, mask=mask)
-        transformed_img = transformed['image']
-        images_tab.append(transformed_img)
-
-        transformed_img = transformed['mask']
-        for x in range(transformed_img.shape[0]):
-            for y in range(transformed_img.shape[1]):
-                if (transformed_img[x, y] == [250, 170, 30]).all():
-                    transformed_img[x, y] = 0
-                elif (transformed_img[x, y] == [0, 0, 142]).all():
-                    transformed_img[x, y] = 1
-                elif (transformed_img[x, y] == [102, 102, 156]).all():
-                    transformed_img[x, y] = 2
-                elif (transformed_img[x, y] == [220, 20, 60]).all():
-                    transformed_img[x, y] = 3
-                elif (transformed_img[x, y] == [153, 153, 153]).all():
-                    transformed_img[x, y] = 4
-                elif (transformed_img[x, y] == [244, 35, 232]).all():
-                    transformed_img[x, y] = 5
-                elif (transformed_img[x, y] == [70, 70, 70]).all():
-                    transformed_img[x, y] = 6
-                elif (transformed_img[x, y] == [70, 130, 180]).all():
-                    transformed_img[x, y] = 7
-        transformed_img = transformed_img[:, :, 0:1]
-        masks_tab.append(transformed_img)
 
     images_tab = np.array(images_tab)
     masks_tab = np.array(masks_tab)
@@ -303,7 +276,7 @@ def model_training(X_train, y_train, X_val, y_val, input_shape, num_classes):
     history = model.fit(X_train, y_train,
                         validation_data=(X_val, y_val),
                         batch_size=32,
-                        epochs=20,
+                        epochs=17,
                         callbacks=[early_stopping, model_checkpoint],
                         verbose=1)
     return history
@@ -316,9 +289,8 @@ def main():
     df_train = df_train.loc[:500]
     df_val = df_val.loc[:50]
 
-    transform = A.Compose([A.HorizontalFlip(p=0)])
-    X_train, y_train = prepare_data(df_train, (256, 256, 3), transform)
-    X_val, y_val = prepare_data(df_val, (256, 256, 3), transform)
+    X_train, y_train = prepare_data(df_train, (256, 256, 3))
+    X_val, y_val = prepare_data(df_val, (256, 256, 3))
     num_class = 8
 
     history = model_training(
